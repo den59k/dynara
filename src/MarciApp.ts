@@ -134,22 +134,33 @@ export class MarciApp<R extends object = {}> {
 
   private websocket?: WebSocketHandler<any>
   private websocketPath?: string
+  private websocketFetch?: (req: BunRequest) => any
 
   registerWsHandler<T>(ws: WebSocketHandler<T>): void
   registerWsHandler<T>(path: string, ws: WebSocketHandler<T>): void
-  registerWsHandler<T>(path: string | WebSocketHandler<T>, ws?: WebSocketHandler<T>): void {
+  registerWsHandler<T>(onFetch: (req: BunRequest) => any, ws: WebSocketHandler<T>): void
+  registerWsHandler<T>(path: string | WebSocketHandler<T> | ((req: BunRequest) => any), ws?: WebSocketHandler<T>): void {
     if (typeof path === "string") {
       this.websocket = ws
       this.websocketPath = path
+    } else if (typeof path === "function") {
+      this.websocket = ws
+      this.websocketFetch = path
     } else {
       this.websocket = path
     }
   }
 
-  private fetch = (req: BunRequest, server: Server): Response | Promise<Response> => {
+  private fetch = async (req: BunRequest, server: Server): Promise<Response> => {
     const path = new URL(req.url).pathname
-    if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket && server.upgrade(req)) {
-      return undefined as any
+    if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket) {
+      const data = this.websocketFetch? await this.websocketFetch(req): {}
+      if (data instanceof Response) {
+        return data
+      }
+      if (server.upgrade(req, { data })) {
+        return undefined as any
+      }
     }
     return new Response(`Route ${req.method}:${path} not found`, { status: 404 });
   }
@@ -158,8 +169,14 @@ export class MarciApp<R extends object = {}> {
   registerNotFoundHandler(handler: (path: string, req: Request, server: Server) => Response | Promise<Response | undefined>): void {
     this.fetch = async (req, server) => {
       const path = new URL(req.url).pathname
-      if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket && server.upgrade(req)) {
-        return undefined as any
+      if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket) {
+        const data = this.websocketFetch? await this.websocketFetch(req): {}
+        if (data instanceof Response) {
+          return data
+        }
+        if (server.upgrade(req, { data })) {
+          return undefined as any
+        }
       }
       const resp = await handler(path, req, server)
       return resp as any
