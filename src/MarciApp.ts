@@ -136,6 +136,7 @@ export class MarciApp<R extends object = {}> {
   private websocketPath?: string
 
   registerWsHandler<T>(ws: WebSocketHandler<T>): void
+  registerWsHandler<T>(path: string, ws: WebSocketHandler<T>): void
   registerWsHandler<T>(path: string | WebSocketHandler<T>, ws?: WebSocketHandler<T>): void {
     if (typeof path === "string") {
       this.websocket = ws
@@ -145,8 +146,8 @@ export class MarciApp<R extends object = {}> {
     }
   }
 
-  private notFoundHandler?: (req: Request, server: Server) => void
-  registerNotFoundHandler(handler: (req: Request, server: Server) => Response | undefined): void {
+  private notFoundHandler?: (path: string, req: Request, server: Server) => void
+  registerNotFoundHandler(handler: (path: string, req: Request, server: Server) => Response | undefined): void {
     this.notFoundHandler = handler
   }
 
@@ -164,7 +165,7 @@ export class MarciApp<R extends object = {}> {
           return undefined as any
         }
         if (this.notFoundHandler) {
-          return this.notFoundHandler(req, server) as any
+          return this.notFoundHandler(path, req, server) as any
         }
         return new Response(`Route ${req.method}:${path} not found`, { status: 404 });
       },
