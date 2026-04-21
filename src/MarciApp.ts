@@ -146,9 +146,24 @@ export class MarciApp<R extends object = {}> {
     }
   }
 
-  private notFoundHandler?: (path: string, req: Request, server: Server) => void
-  registerNotFoundHandler(handler: (path: string, req: Request, server: Server) => Response | undefined): void {
-    this.notFoundHandler = handler
+  private fetch = (req: BunRequest, server: Server): Response | Promise<Response> => {
+    const path = new URL(req.url).pathname
+    if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket && server.upgrade(req)) {
+      return undefined as any
+    }
+    return new Response(`Route ${req.method}:${path} not found`, { status: 404 });
+  }
+
+  // private notFoundHandler?: (path: string, req: Request, server: Server) => Response | Promise<Response | undefined>
+  registerNotFoundHandler(handler: (path: string, req: Request, server: Server) => Response | Promise<Response | undefined>): void {
+    this.fetch = async (req, server) => {
+      const path = new URL(req.url).pathname
+      if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket && server.upgrade(req)) {
+        return undefined as any
+      }
+      const resp = await handler(path, req, server)
+      return resp as any
+    }
   }
 
   async listen(port?: number, hostname?: string): Promise<Bun.Server> {
@@ -159,16 +174,7 @@ export class MarciApp<R extends object = {}> {
       routes: this.routes,
       port,
       hostname,
-      fetch: (req, server): Response => {
-        const path = new URL(req.url).pathname
-        if ((!this.websocketPath || this.websocketPath.startsWith(path)) && this.websocket && server.upgrade(req)) {
-          return undefined as any
-        }
-        if (this.notFoundHandler) {
-          return this.notFoundHandler(path, req, server) as any
-        }
-        return new Response(`Route ${req.method}:${path} not found`, { status: 404 });
-      },
+      fetch: this.fetch as any,
       websocket: this.websocket,
       error(err) {
         if (err instanceof HTTPError) {
