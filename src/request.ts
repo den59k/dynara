@@ -12,7 +12,17 @@ export class MarciRequestInternal<T extends RouteOptions = {}> {
   body: T["body"] extends object? SchemaType<T["body"]>: unknown = null as any
 
   constructor(req: BunRequest, server: Server, paramsSchema: any, querySchema: any) {
-    this.params = paramsSchema === null? req.params: Value.Parse(paramsSchema, req.params) as any
+    if (paramsSchema && paramsSchema.arrayKeys) {
+      const params = req.params as any
+      for (let key of paramsSchema.arrayKeys) {
+        if (params[key] && !params[key].startsWith('[')) {
+          params[key] = params[key].split(",")
+        }
+      }
+      this.params = Value.Parse(paramsSchema, params) as any
+    } else {
+      this.params = paramsSchema === null? req.params: Value.Parse(paramsSchema, req.params) as any
+    }
 
     if (req.url.includes("?")) {
       const queryParams = new URL(req.url).searchParams

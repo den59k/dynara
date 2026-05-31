@@ -9,9 +9,10 @@ app.register(app => {
   })
   const query = schema({ raw: "boolean" })
   app.get("/test/*", [{}, query], (req) => {
-  
-    console.log(req.server)
-  
+    return { status: "ok", query: req.query, params: req.params }
+  })
+
+  app.get("/items/:itemIds", [{ itemIds: { type: "array", items: "number" } }], (req) => {
     return { status: "ok", query: req.query, params: req.params }
   })
 })

@@ -30,8 +30,14 @@ export class MarciApp<R extends object = {}> {
     const querySchema = options.query? unfoldTypeBoxSchema(options.query): null
     const bodyValidation = options.body? TypeCompiler.Compile(unfoldTypeBoxSchema(options.body)): null
 
-    this.routes[fullPath][method] = async (req: BunRequest) => {
+    if (paramsSchema && paramsSchema.properties) {
+      const arrayKeys = Object.entries(paramsSchema.properties).filter((i: any) => i[1].type === 'array').map(i => i[0])
+      if (arrayKeys.length > 0) {
+        paramsSchema.arrayKeys = arrayKeys
+      }
+    }
 
+    this.routes[fullPath][method] = async (req: BunRequest) => {
       const request = new MarciRequestInternal(req, this.root?.server ?? this.server, paramsSchema, querySchema)
 
       for (const callback of this.onRequestHooks) {
