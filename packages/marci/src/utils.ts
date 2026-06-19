@@ -81,3 +81,59 @@ export const parseBody = (schema: TypeCheck<any>, req: BunRequest): Promise<any>
       })
   })
 }
+
+type RouteHandler = (req: any) => any
+
+const matchSegments = (pattern: string, segments: string[]): Record<string, string> | null => {
+  const patternSegments = pattern.split("/")
+  const params: Record<string, string> = {}
+  for (let i = 0; i < patternSegments.length; i++) {
+    const part = patternSegments[i]
+    if (i >= segments.length) return null
+    if (part === "*") {
+      // Wildcard consumes the rest of the path (at least one segment); Bun does
+      // not surface it in params
+      return params
+    }
+    if (part.startsWith(":")) {
+      params[part.slice(1)] = decodeURIComponent(segments[i])
+    } else if (part !== segments[i]) {
+      return null
+    }
+  }
+  return segments.length === patternSegments.length? params: null
+}
+
+const scorePattern = (pattern: string): number => {
+  let score = 0
+  for (const part of pattern.split("/")) {
+    if (part === "*") score -= 1000
+    else if (part.startsWith(":")) score += 1
+    else score += 10
+  }
+  return score
+}
+
+/**
+ * Finds the route registered for `pathname`+`method`, mirroring Bun's matching
+ * precedence (static > parameter > wildcard). Returns the handler and the
+ * extracted params, or null when nothing matches. Used by `inject()` to route
+ * requests in-process without a server.
+ */
+export const matchRoute = (routes: Record<string, any>, method: string, pathname: string): { handler: RouteHandler, params: Record<string, string> } | null => {
+  const segments = pathname.split("/")
+  let best: { handler: RouteHandler, params: Record<string, string> } | null = null
+  let bestScore = -Infinity
+  for (const pattern in routes) {
+    const methods = routes[pattern]
+    if (!methods || typeof methods[method] !== "function") continue
+    const params = matchSegments(pattern, segments)
+    if (params === null) continue
+    const score = scorePattern(pattern)
+    if (score > bestScore) {
+      bestScore = score
+      best = { handler: methods[method], params }
+    }
+  }
+  return best
+}

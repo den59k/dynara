@@ -1,4 +1,4 @@
-import type { BunRequest, Server } from "bun";
+import type { BunRequest, Server, HeadersInit, BodyInit } from "bun";
 import type { SchemaItem, SchemaType } from "compact-json-schema";
 
 export type RouteOptions = {
@@ -35,3 +35,10 @@ export type RouteAction <T extends RouteOptions, R extends object = {}> = (req: 
 export type GetRouteAction <T extends GetRouteOptions, R extends object = {}> = (req: GetMarciRequest<R, T>) => (any | Promise<any>)
 
 export type RegisterPluginOptions = { prefix?: string }
+
+export type InjectOptions = {
+  method?: string,
+  url: string,
+  headers?: HeadersInit,
+  body?: BodyInit | Record<string, any> | null,
+}

@@ -20,6 +20,7 @@
   },
   "scripts": {
     "build": "bunx bunup src/index.ts --format esm",
+    "test": "bun test",
     "release": "bun pm version patch"
   },
   "devDependencies": {

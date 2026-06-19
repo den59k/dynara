@@ -4,8 +4,8 @@ import { TypeBoxError } from '@sinclair/typebox'
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { HTTPError, ValidationError } from './error'
 import { MarciRequestInternal } from './request'
-import type { GetRouteAction, GetRouteOptions, MarciRequest, RegisterPluginOptions, RouteAction, RouteOptions } from './common'
-import { getRouteOptions, isDefault, parseBody, type GetOptionsFromSchemaList, getValidationError, type PostOptionsFromSchemaList } from './utils'
+import type { GetRouteAction, GetRouteOptions, InjectOptions, MarciRequest, RegisterPluginOptions, RouteAction, RouteOptions } from './common'
+import { getRouteOptions, isDefault, parseBody, matchRoute, type GetOptionsFromSchemaList, getValidationError, type PostOptionsFromSchemaList } from './utils'
 
 export class MarciApp<R extends object = {}> {
 
@@ -199,33 +199,86 @@ export class MarciApp<R extends object = {}> {
       hostname,
       fetch: this.fetch as any,
       websocket: this.websocket,
-      error(err) {
-        if (err instanceof HTTPError) {
-          if (err.data) {
-            return Response.json(err.data, { status: err.statusCode })
-          }
-          return new Response(
-            err.message, 
-            { status: err.statusCode }
-          )
-        } else if (err instanceof TypeBoxError || err instanceof ValidationError) {
-          return new Response(
-            getValidationError((err as any).error, (err as any).where),
-            { status: 400, headers: { "Content-Type": "application/json" } }
-          )
-        } else {
-          console.error(err)
-          return new Response(err.message, { status: 500 })
-        }
-      }
+      error: (err) => this.handleError(err),
     })
 
     this.server = server
-    
+
     for (const callback of this.onListenHooks) {
       await callback(server)
     }
 
     return server
+  }
+
+  /** Converts a thrown error into the same Response Bun's `error` handler produces. */
+  private handleError(err: any): Response {
+    if (err instanceof HTTPError) {
+      if (err.data) {
+        return Response.json(err.data, { status: err.statusCode })
+      }
+      return new Response(err.message, { status: err.statusCode })
+    } else if (err instanceof TypeBoxError || err instanceof ValidationError) {
+      return new Response(
+        getValidationError((err as any).error, (err as any).where),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
+    } else {
+      console.error(err)
+      return new Response(err.message, { status: 500 })
+    }
+  }
+
+  /**
+   * Dispatches a request through the app's routes in-process — no server, no
+   * socket. Matches the route the same way Bun would, then runs the onRequest
+   * hooks, validation, handler, and error mapping, returning the Response.
+   * Intended for integration testing.
+   *
+   * @example
+   * const res = await app.inject("/users/1")
+   * const res = await app.inject({ method: "POST", url: "/users", body: { name: "Alice" } })
+   * expect(res.status).toBe(200)
+   * expect(await res.json()).toEqual({ ... })
+   */
+  async inject(options: string | InjectOptions): Promise<Response> {
+    if (this.root) return this.root.inject(options)
+
+    const opts: InjectOptions = typeof options === "string"? { url: options }: options
+
+    if (this.promises.length > 0) {
+      await Promise.all(this.promises)
+    }
+
+    const method = (opts.method ?? "GET").toUpperCase()
+    const rawUrl = opts.url.includes("://")? opts.url: "http://localhost" + (opts.url.startsWith("/")? opts.url: "/" + opts.url)
+    const url = new URL(rawUrl)
+    const pathname = url.pathname
+
+    const headers = new Headers(opts.headers)
+    let body: any = opts.body
+    if (
+      body !== undefined && body !== null && typeof body === "object" &&
+      !(body instanceof ReadableStream) && !(body instanceof Blob) &&
+      !(body instanceof FormData) && !(body instanceof URLSearchParams) &&
+      !(body instanceof ArrayBuffer) && !ArrayBuffer.isView(body)
+    ) {
+      body = JSON.stringify(body)
+      if (!headers.has("content-type")) headers.set("content-type", "application/json")
+    }
+
+    const req = new Request(url.href, { method, headers, body: body ?? undefined }) as any
+
+    const match = matchRoute(this.routes, method, pathname)
+    if (!match) {
+      return this.fetch(req, { upgrade: () => false } as any)
+    }
+
+    req.params = match.params
+    try {
+      return await match.handler(req)
+    } catch (err) {
+      return this.handleError(err)
+    }
   }
 }
