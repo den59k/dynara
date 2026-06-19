@@ -51,6 +51,7 @@ provideTypeBoxMap({
   null: Type.Null,
   literal: Type.Literal,
   optional: Type.Optional,
+  any: Type.Any,
 })
 
 export const isDefault = (schema: SchemaItem): boolean => {

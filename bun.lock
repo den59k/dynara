@@ -4,12 +4,26 @@
   "workspaces": {
     "": {
       "name": "my-backend",
-      "dependencies": {
-        "@sinclair/typebox": "^0.34.37",
-        "compact-json-schema": "^0.1.0",
-      },
       "devDependencies": {
         "@types/bun": "latest",
+        "typescript": "^5",
+      },
+    },
+    "packages/dev-app": {
+      "name": "@den59k/dev-app",
+      "dependencies": {
+        "@den59k/marci": "workspace:*",
+        "compact-json-schema": "^0.1.4",
+      },
+    },
+    "packages/marci": {
+      "name": "@den59k/marci",
+      "version": "0.0.22",
+      "dependencies": {
+        "@sinclair/typebox": "^0.34.37",
+        "compact-json-schema": "^0.1.4",
+      },
+      "devDependencies": {
         "bun-plugin-dts": "^0.3.0",
         "bunup": "^0.8.58",
       },
@@ -31,6 +45,10 @@
     "@clack/core": ["@clack/core@0.4.2", "", { "dependencies": { "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-NYQfcEy8MWIxrT5Fj8nIVchfRFA26yYKJcvBS7WlUIlw2OmQOY9DhGGXMovyI5J5PpxrCPGkgUi207EBrjpBvg=="],
 
     "@clack/prompts": ["@clack/prompts@0.10.1", "", { "dependencies": { "@clack/core": "0.4.2", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-Q0T02vx8ZM9XSv9/Yde0jTmmBQufZhPJfYAg2XrrrxWWaZgq1rr8nU8Hv710BQ1dhoP8rtY7YUdpGej2Qza/cw=="],
+
+    "@den59k/dev-app": ["@den59k/dev-app@workspace:packages/dev-app"],
+
+    "@den59k/marci": ["@den59k/marci@workspace:packages/marci"],
 
     "@emnapi/core": ["@emnapi/core@1.4.3", "", { "dependencies": { "@emnapi/wasi-threads": "1.0.2", "tslib": "^2.4.0" } }, "sha512-4m62DuCE07lw01soJwPiBGC0nAww0Q+RY70VZ+n49yDIO13yyinhbWCeNnaob0lakDtWQzSdtNWzJeOJt2ma+g=="],
 
@@ -130,7 +148,7 @@
 
     "common-path-prefix": ["common-path-prefix@3.0.0", "", {}, "sha512-QE33hToZseCH3jS0qN96O/bSh3kaw/h+Tq7ngyY9eWDUnTlTNUyqfqvCXioLe5Na5jFsL78ra/wuBU4iuEgd4w=="],
 
-    "compact-json-schema": ["compact-json-schema@0.1.0", "", {}, "sha512-xHRyUzELRAgdmceEKHYYAkc8cpYYnBmoHTGuLt6TgL+Yw/Xm233b22ukDwyIEVrCmqKiV+QXIBF+ORqJgmkU9g=="],
+    "compact-json-schema": ["compact-json-schema@0.1.4", "", {}, "sha512-/WM8oDkfebsoud69Baq/gWuY0Xf8jcBxkUpLvg2wHzqTYtQWNB7Bh1t+/EfwNqFt5gDYpCrths4t+9LUsOJutw=="],
 
     "confbox": ["confbox@0.2.2", "", {}, "sha512-1NB+BKqhtNipMsov4xI/NnhCKp9XG9NamYp5PVm9klAT0fsrNPjaFICsCFhNhwZJKNh7zB/3q8qXz0E9oaMNtQ=="],
 

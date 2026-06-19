@@ -1,34 +1,18 @@
 {
-  "name": "@den59k/marci",
+  "name": "marci-monorepo",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "private": true,
   "license": "MIT",
-  "version": "0.0.22",
-  "description": "Simple HTTP framework powered by Bun",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/den59k/marci.git"
-  },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bun --watch src/dev-app.ts",
-    "build": "bunx bunup src/index.ts --format esm",
-    "release": "bun pm version patch"
+    "dev": "bun --conditions development --watch packages/dev-app/src/dev-app.ts",
+    "build": "bun --filter '@den59k/marci' build",
+    "release": "bun --filter '@den59k/marci' release"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "bun-plugin-dts": "^0.3.0",
-    "bunup": "^0.8.58"
-  },
-  "peerDependencies": {
-    "@types/bun": "*",
     "typescript": "^5"
-  },
-  "dependencies": {
-    "@sinclair/typebox": "^0.34.37",
-    "compact-json-schema": "^0.1.0"
-  },
-  "files": [
-    "dist"
-  ]
+  }
 }

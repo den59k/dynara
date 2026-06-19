@@ -1,0 +1,40 @@
+{
+  "name": "@den59k/marci",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "license": "MIT",
+  "version": "0.0.22",
+  "description": "Simple HTTP framework powered by Bun",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/den59k/marci.git",
+    "directory": "packages/marci"
+  },
+  "scripts": {
+    "build": "bunx bunup src/index.ts --format esm",
+    "release": "bun pm version patch"
+  },
+  "devDependencies": {
+    "bun-plugin-dts": "^0.3.0",
+    "bunup": "^0.8.58"
+  },
+  "peerDependencies": {
+    "@types/bun": "*",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.37",
+    "compact-json-schema": "^0.1.4"
+  },
+  "files": [
+    "dist"
+  ]
+}

@@ -1,5 +1,5 @@
 import { schema } from "compact-json-schema";
-import { MarciApp } from ".";
+import { MarciApp } from "@den59k/marci";
 
 const app = new MarciApp()
 
@@ -14,6 +14,11 @@ app.register(app => {
 
   app.get("/items/:itemIds", [{ itemIds: { type: "array", items: "number" } }], (req) => {
     return { status: "ok", query: req.query, params: req.params }
+  })
+
+  const bodySchema = schema({ name: "string??" })
+  app.post("/items", { body: bodySchema }, async (req) => {
+    console.log(req.body)
   })
 })
 
