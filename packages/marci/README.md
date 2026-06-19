@@ -2,68 +2,149 @@
 
 [![NPM version](https://img.shields.io/npm/v/%40den59k%2Fmarci)](https://www.npmjs.com/package/@den59k/marci)
 
-An extremely simple HTTP framework (practically a wrapper for `Bun.serve`) for those who are also switching from Fastify
+An extremely simple HTTP framework for Bun — practically a typed wrapper around `Bun.serve`, with Fastify-style routing and fast schema validation. Made for people switching over from Fastify.
 
-Works with only Bun (NodeJS and Deno are not supported)
+- **Bun only** — Node.js and Deno are not supported.
+- **Minimal overhead** — routing is delegated to Bun's native router.
+- **Typed validation** — powered by [TypeBox](https://www.npmjs.com/package/@sinclair/typebox), written with the compact [compact-json-schema](https://www.npmjs.com/package/compact-json-schema) syntax.
 
-## Features
+## Install
 
-* Minimal overhead as much as possible
-
-* Fastify style routing
-
-* Fast validation (powered by [typebox](https://www.npmjs.com/package/@sinclair/typebox), but writing with [compact-json-schema](https://www.npmjs.com/package/compact-json-schema))
-
-## Using
-
+```sh
+bun add @den59k/marci
 ```
 
+## Quick start
+
+```ts
 import { MarciApp } from '@den59k/marci'
-import usersRoutes from './usersRoutes'
 
 const app = new MarciApp()
 
-app.get("/api/", (req) => {
+app.get('/', () => {
   return { hello: 'world' }
 })
 
-app.register(userRoutes, { prefix: "/users" })
-
+app.listen(3000)
 ```
 
-```
-// usersRoutes.ts
+A handler may return a plain value (sent as JSON), a `Response` (sent as-is), or `undefined` (an empty `200`).
+
+## Routes & validation
+
+Routes use Bun's native patterns — `:param` for a single segment, `*` for a wildcard. The methods are `get`, `post`, `put`, `patch`, and `delete`.
+
+Schemas are written with [compact-json-schema](https://www.npmjs.com/package/compact-json-schema) and validated with TypeBox. Pass them as a route-option object, or as a positional array — `[params]` / `[params, query]` for `GET`, `[params, body, query]` for the others. Validated `req.params`, `req.query`, and `req.body` are fully typed.
+
+```ts
 import { schema } from 'compact-json-schema'
 
-type UserContext = {
-  user: { id: number }
-}
+const params = schema({ id: 'number' })
+const body = schema({ name: 'string', age: 'number?' }) // ? optional, ?? nullable
 
-export const useAuth = (ctx: MarciRequest<UserContext>) => {
-  ctx.user = { id: 2 }
-}
+// Option object
+app.post('/users/:id', { params, body }, (req) => {
+  req.params.id   // number
+  req.body.name   // string
+  return { ok: true }
+})
 
-export default async (app: MarciApp<UserContext>) => {
-  app.addHook("onRequest", useAuth)
-
-  /** Get me info */
-  app.get("/me", () => {
-    return ctx.user
-  })
-
-  const userParams = schema({ userId: "number" })
-  /** Get user by ID */
-  app.get("/:userId", [userParams], (req) => {
-    return { id: req.params.userId }
-  })
-
-  const createUserPost = schema({ text: "string" })
-  /** Create new user post */
-  app.post("/:userId/post", { params: userParams, body: createUserPost }, (req) => {
-    
-    return { userId: req.params.userId, post: req.body }
-  })
-
-}
-
+// Positional array
+app.get('/users/:id', [params], (req) => {
+  return { id: req.params.id } // number
+})
 ```
+
+A few conveniences:
+
+- **Array params** are comma-split: `GET /items/1,2,3` with `{ itemIds: { type: 'array', items: 'number' } }` yields `[1, 2, 3]`.
+- **Query booleans** accept `?flag=true` or a bare `?flag`.
+- `req.raw` exposes the underlying `BunRequest`, and `req.server` the Bun `Server`.
+
+## Hooks
+
+```ts
+app.addHook('onRequest', (req) => {
+  // runs before every handler; throw to short-circuit the request
+})
+
+app.addHook('onListen', (server) => {
+  console.log(`Listening on ${server.url}`)
+})
+```
+
+## Plugins & context
+
+`register` mounts a group of routes under a prefix. Type the app with a context type to share data attached by hooks:
+
+```ts
+type Ctx = { user: { id: number } }
+
+app.register((users: MarciApp<Ctx>) => {
+  users.addHook('onRequest', (req) => { req.user = { id: 1 } })
+  users.get('/me', (req) => req.user)
+}, { prefix: '/users' })
+```
+
+For composable, reusable plugins there is the `marci()` builder. `use` adds plugins, `routes` adds handlers, and the result can be passed to `register`:
+
+```ts
+import { marci, MarciApp } from '@den59k/marci'
+
+const useAuth = (app: MarciApp<Ctx>) => {
+  app.addHook('onRequest', (req) => { req.user = { id: 1 } })
+}
+
+const users = marci<Ctx>()
+  .use(useAuth)
+  .routes((app) => {
+    app.get('/me', (req) => req.user)
+  })
+
+app.register(users, { prefix: '/users' })
+```
+
+## Errors
+
+Throw `HTTPError` to send an explicit status code; validation failures are turned into `400` responses automatically.
+
+```ts
+import { HTTPError } from '@den59k/marci'
+
+app.get('/secret', () => {
+  throw new HTTPError('Forbidden', 403)        // text body
+  // throw new HTTPError({ reason: 'forbidden' }, 403)  // JSON body
+})
+```
+
+## Testing
+
+`inject()` dispatches a request through your routes in-process — no server, no socket — and returns a real `Response`. It reuses the same routing, validation, and error handling as a live server.
+
+```ts
+import { test, expect } from 'bun:test'
+
+test('returns a user', async () => {
+  const res = await app.inject('/users/1')
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ id: 1 })
+})
+
+// With a body:
+await app.inject({ method: 'POST', url: '/users', body: { name: 'Alice' } })
+```
+
+> Under `inject()` there is no Bun `Server`, so `req.server` is `undefined` and WebSocket upgrades are not exercised.
+
+## WebSockets
+
+```ts
+app.registerWsHandler('/ws', {
+  open(ws) { ws.send('hello') },
+  message(ws, msg) { ws.send(msg) },
+})
+```
+
+## License
+
+MIT
