@@ -1,13 +1,13 @@
 {
-  "name": "@den59k/dev-app",
+  "name": "dynara-dev-app",
   "type": "module",
   "private": true,
-  "description": "Local playground app for developing @den59k/marci",
+  "description": "Local playground app for developing dynara",
   "scripts": {
     "dev": "bun --conditions development --watch src/dev-app.ts"
   },
   "dependencies": {
-    "@den59k/marci": "workspace:*",
+    "dynara": "workspace:*",
     "compact-json-schema": "^0.1.4"
   }
 }

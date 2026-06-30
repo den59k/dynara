@@ -1,5 +1,5 @@
 {
-  "name": "marci-monorepo",
+  "name": "dynara-monorepo",
   "type": "module",
   "private": true,
   "license": "MIT",
@@ -8,9 +8,9 @@
   ],
   "scripts": {
     "dev": "bun --conditions development --watch packages/dev-app/src/dev-app.ts",
-    "build": "bun --filter '@den59k/marci' build",
-    "test": "bun --filter '@den59k/marci' test",
-    "release": "bun --filter '@den59k/marci' release"
+    "build": "bun --filter 'dynara' build",
+    "test": "bun --filter 'dynara' test",
+    "release": "bun --filter 'dynara' release"
   },
   "devDependencies": {
     "@types/bun": "latest",

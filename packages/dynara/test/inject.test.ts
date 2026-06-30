@@ -1,8 +1,8 @@
 import { test, expect } from "bun:test"
 import { schema } from "compact-json-schema"
-import { MarciApp, HTTPError } from "../src"
+import { Router, HTTPError } from "../src"
 
-const app = new MarciApp()
+const app = new Router()
 
 app.get("/items/:itemIds", [{ itemIds: { type: "array", items: "number" } }], (req) => {
   return { params: req.params }
@@ -70,7 +70,7 @@ test("dispatches concurrent requests independently", async () => {
 })
 
 test("resolves routes registered through a plugin", async () => {
-  const plugged = new MarciApp()
+  const plugged = new Router()
   plugged.register((child) => {
     child.get("/health", () => ({ status: "up" }))
   }, { prefix: "/api" })

@@ -3,7 +3,7 @@ import type { BunRequest, Server } from "bun"
 import type { SchemaType } from "compact-json-schema"
 import type { RouteOptions } from "./common"
 
-export class MarciRequestInternal<T extends RouteOptions = {}> {
+export class DynaraRequestInternal<T extends RouteOptions = {}> {
 
   server: Server
   raw: BunRequest

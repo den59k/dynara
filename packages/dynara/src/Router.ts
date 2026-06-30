@@ -3,21 +3,21 @@ import { unfoldTypeBoxSchema, type SchemaItem } from 'compact-json-schema'
 import { TypeBoxError } from '@sinclair/typebox'
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { HTTPError, ValidationError } from './error'
-import { MarciRequestInternal } from './request'
-import type { GetRouteAction, GetRouteOptions, InjectOptions, MarciRequest, RegisterPluginOptions, RouteAction, RouteOptions } from './common'
+import { DynaraRequestInternal } from './request'
+import type { GetRouteAction, GetRouteOptions, InjectOptions, DynaraRequest, RegisterPluginOptions, RouteAction, RouteOptions } from './common'
 import { getRouteOptions, isDefault, parseBody, matchRoute, type GetOptionsFromSchemaList, getValidationError, type PostOptionsFromSchemaList } from './utils'
 
-export class MarciApp<R extends object = {}> {
+export class Router<R extends object = {}> {
 
   private routes: Record<string, any> = {}
   private promises: Promise<void>[] = []
   private prefix = ""
-  private root: MarciApp | null = null
+  private root: Router | null = null
   
   private server!: Server
 
   private onListenHooks: Array<(ctx: any) => (void | Promise<void>)> = []
-  private onRequestHooks: Array<(ctx: MarciRequest<R>) => (void | Promise<void>)> = []
+  private onRequestHooks: Array<(ctx: DynaraRequest<R>) => (void | Promise<void>)> = []
 
   private add(path: string, method: string, _options: RouteOptions | SchemaItem[], callback: RouteAction<any>) {
     let fullPath = (this.prefix + (path.endsWith("/")? path.slice(0, -1): path)) || "/"
@@ -38,7 +38,7 @@ export class MarciApp<R extends object = {}> {
     }
 
     this.routes[fullPath][method] = async (req: BunRequest) => {
-      const request = new MarciRequestInternal(req, this.root?.server ?? this.server, paramsSchema, querySchema)
+      const request = new DynaraRequestInternal(req, this.root?.server ?? this.server, paramsSchema, querySchema)
 
       for (const callback of this.onRequestHooks) {
         await callback(request as any)
@@ -59,7 +59,7 @@ export class MarciApp<R extends object = {}> {
   }
 
   addHook(where: "onListen", callback: (server: Bun.Server) => void): void
-  addHook(where: "onRequest", callback: (ctx: MarciRequest<R>) => void): void
+  addHook(where: "onRequest", callback: (ctx: DynaraRequest<R>) => void): void
   addHook(where: "onRequest" | "onListen", callback: (ctx: any) => void): void {
     if (where === "onRequest") {
       this.onRequestHooks.push(callback)
@@ -124,8 +124,8 @@ export class MarciApp<R extends object = {}> {
   }
 
 
-  register(plugin: (app: MarciApp<any>) => void | Promise<void>, options: RegisterPluginOptions = {}): void {
-    const app = new MarciApp()
+  register(plugin: (app: Router<any>) => void | Promise<void>, options: RegisterPluginOptions = {}): void {
+    const app = new Router()
 
     app.root = this.root ?? this as any
     app.routes = this.routes

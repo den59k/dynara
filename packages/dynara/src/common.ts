@@ -12,11 +12,11 @@ export type GetRouteOptions = {
   query?: SchemaItem,
 }
 
-export interface MarciContext {
-  
+export interface DynaraContext {
+
 }
 
-export type MarciRequest<R extends object = {}, T extends RouteOptions = {}> = MarciContext & R & {
+export type DynaraRequest<R extends object = {}, T extends RouteOptions = {}> = DynaraContext & R & {
   params: T["params"] extends object? SchemaType<T["params"]>: unknown
   query: T["query"] extends object? SchemaType<T["query"]>: unknown
   body: T["body"] extends object? SchemaType<T["body"]>: unknown
@@ -24,15 +24,15 @@ export type MarciRequest<R extends object = {}, T extends RouteOptions = {}> = M
   server: Server
 }
 
-export type GetMarciRequest<R extends object = {}, T extends GetRouteOptions = {}> = MarciContext & R & {
+export type GetDynaraRequest<R extends object = {}, T extends GetRouteOptions = {}> = DynaraContext & R & {
   params: T["params"] extends object? SchemaType<T["params"]>: unknown
   query: T["query"] extends object? SchemaType<T["query"]>: unknown
   raw: BunRequest
   server: Server
 }
 
-export type RouteAction <T extends RouteOptions, R extends object = {}> = (req: MarciRequest<R, T>) => (any | Promise<any>)
-export type GetRouteAction <T extends GetRouteOptions, R extends object = {}> = (req: GetMarciRequest<R, T>) => (any | Promise<any>)
+export type RouteAction <T extends RouteOptions, R extends object = {}> = (req: DynaraRequest<R, T>) => (any | Promise<any>)
+export type GetRouteAction <T extends GetRouteOptions, R extends object = {}> = (req: GetDynaraRequest<R, T>) => (any | Promise<any>)
 
 export type RegisterPluginOptions = { prefix?: string }
 

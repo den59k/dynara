@@ -1,7 +1,7 @@
 import { schema } from "compact-json-schema";
-import { MarciApp } from "@den59k/marci";
+import { Router } from "dynara";
 
-const app = new MarciApp()
+const app = new Router()
 
 app.register(app => {
   app.addHook("onListen", (server) => {

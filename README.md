@@ -1,13 +1,13 @@
-# Marci monorepo
+# Dynara monorepo
 
-A Bun-powered monorepo for the [Marci](packages/marci) HTTP framework.
+A Bun-powered monorepo for the [Dynara](packages/dynara) HTTP framework.
 
 ## Packages
 
 | Package | Description |
 | --- | --- |
-| [`@den59k/marci`](packages/marci) | The published HTTP framework. See its [README](packages/marci/README.md). |
-| `@den59k/dev-app` | Local playground app used to develop and try out the framework. Not published. |
+| [`dynara`](packages/dynara) | The published HTTP framework. See its [README](packages/dynara/README.md). |
+| `dynara-dev-app` | Local playground app used to develop and try out the framework. Not published. |
 
 ## Getting started
 
@@ -20,10 +20,10 @@ bun install
 Run from the repository root:
 
 ```sh
-bun run dev      # start the dev-app (bun --watch) against the local marci sources
-bun run build    # build the @den59k/marci package
-bun run release  # bump the @den59k/marci patch version
+bun run dev      # start the dev-app (bun --watch) against the local dynara sources
+bun run build    # build the dynara package
+bun run release  # bump the dynara patch version
 ```
 
 You can also target a single package directly with Bun's workspace filter, e.g.
-`bun --filter '@den59k/marci' build`.
+`bun --filter 'dynara' build`.

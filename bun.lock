@@ -10,15 +10,15 @@
       },
     },
     "packages/dev-app": {
-      "name": "@den59k/dev-app",
+      "name": "dynara-dev-app",
       "dependencies": {
-        "@den59k/marci": "workspace:*",
         "compact-json-schema": "^0.1.4",
+        "dynara": "workspace:*",
       },
     },
-    "packages/marci": {
-      "name": "@den59k/marci",
-      "version": "0.0.22",
+    "packages/dynara": {
+      "name": "dynara",
+      "version": "0.0.1",
       "dependencies": {
         "@sinclair/typebox": "^0.34.37",
         "compact-json-schema": "^0.1.4",
@@ -45,10 +45,6 @@
     "@clack/core": ["@clack/core@0.4.2", "", { "dependencies": { "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-NYQfcEy8MWIxrT5Fj8nIVchfRFA26yYKJcvBS7WlUIlw2OmQOY9DhGGXMovyI5J5PpxrCPGkgUi207EBrjpBvg=="],
 
     "@clack/prompts": ["@clack/prompts@0.10.1", "", { "dependencies": { "@clack/core": "0.4.2", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-Q0T02vx8ZM9XSv9/Yde0jTmmBQufZhPJfYAg2XrrrxWWaZgq1rr8nU8Hv710BQ1dhoP8rtY7YUdpGej2Qza/cw=="],
-
-    "@den59k/dev-app": ["@den59k/dev-app@workspace:packages/dev-app"],
-
-    "@den59k/marci": ["@den59k/marci@workspace:packages/marci"],
 
     "@emnapi/core": ["@emnapi/core@1.4.3", "", { "dependencies": { "@emnapi/wasi-threads": "1.0.2", "tslib": "^2.4.0" } }, "sha512-4m62DuCE07lw01soJwPiBGC0nAww0Q+RY70VZ+n49yDIO13yyinhbWCeNnaob0lakDtWQzSdtNWzJeOJt2ma+g=="],
 
@@ -161,6 +157,10 @@
     "defu": ["defu@6.1.4", "", {}, "sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg=="],
 
     "dts-bundle-generator": ["dts-bundle-generator@9.5.1", "", { "dependencies": { "typescript": ">=5.0.2", "yargs": "^17.6.0" }, "bin": { "dts-bundle-generator": "dist/bin/dts-bundle-generator.js" } }, "sha512-DxpJOb2FNnEyOzMkG11sxO2dmxPjthoVWxfKqWYJ/bI/rT1rvTMktF5EKjAYrRZu6Z6t3NhOUZ0sZ5ZXevOfbA=="],
+
+    "dynara": ["dynara@workspace:packages/dynara"],
+
+    "dynara-dev-app": ["dynara-dev-app@workspace:packages/dev-app"],
 
     "eastasianwidth": ["eastasianwidth@0.2.0", "", {}, "sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA=="],
 

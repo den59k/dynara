@@ -1,13 +1,13 @@
 import { test, expect, afterAll } from "bun:test"
 import { schema } from "compact-json-schema"
-import { MarciApp, HTTPError } from "../src"
+import { Router, HTTPError } from "../src"
 
 // Guards that the in-process matcher used by `inject()` stays byte-for-byte
 // identical to Bun's real router. If a future Bun version changes its routing
 // semantics, this test catches the drift.
 
 const build = () => {
-  const app = new MarciApp()
+  const app = new Router()
   app.get("/", () => ({ root: true }))
   app.get("/items/all", () => ({ all: true }))
   app.get("/items/:itemIds", [{ itemIds: { type: "array", items: "number" } }], (r) => ({ params: r.params }))

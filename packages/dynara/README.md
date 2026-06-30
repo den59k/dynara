@@ -1,6 +1,6 @@
-# Marci
+# Dynara
 
-[![NPM version](https://img.shields.io/npm/v/%40den59k%2Fmarci)](https://www.npmjs.com/package/@den59k/marci)
+[![NPM version](https://img.shields.io/npm/v/dynara)](https://www.npmjs.com/package/dynara)
 
 An extremely simple HTTP framework for Bun — practically a typed wrapper around `Bun.serve`, with Fastify-style routing and fast schema validation. Made for people switching over from Fastify.
 
@@ -11,15 +11,15 @@ An extremely simple HTTP framework for Bun — practically a typed wrapper aroun
 ## Install
 
 ```sh
-bun add @den59k/marci
+bun add dynara
 ```
 
 ## Quick start
 
 ```ts
-import { MarciApp } from '@den59k/marci'
+import { Router } from 'dynara'
 
-const app = new MarciApp()
+const app = new Router()
 
 app.get('/', () => {
   return { hello: 'world' }
@@ -80,22 +80,22 @@ app.addHook('onListen', (server) => {
 ```ts
 type Ctx = { user: { id: number } }
 
-app.register((users: MarciApp<Ctx>) => {
+app.register((users: Router<Ctx>) => {
   users.addHook('onRequest', (req) => { req.user = { id: 1 } })
   users.get('/me', (req) => req.user)
 }, { prefix: '/users' })
 ```
 
-For composable, reusable plugins there is the `marci()` builder. `use` adds plugins, `routes` adds handlers, and the result can be passed to `register`:
+For composable, reusable plugins there is the `dynara()` builder. `use` adds plugins, `routes` adds handlers, and the result can be passed to `register`:
 
 ```ts
-import { marci, MarciApp } from '@den59k/marci'
+import { dynara, Router } from 'dynara'
 
-const useAuth = (app: MarciApp<Ctx>) => {
+const useAuth = (app: Router<Ctx>) => {
   app.addHook('onRequest', (req) => { req.user = { id: 1 } })
 }
 
-const users = marci<Ctx>()
+const users = dynara<Ctx>()
   .use(useAuth)
   .routes((app) => {
     app.get('/me', (req) => req.user)
@@ -109,7 +109,7 @@ app.register(users, { prefix: '/users' })
 Throw `HTTPError` to send an explicit status code; validation failures are turned into `400` responses automatically.
 
 ```ts
-import { HTTPError } from '@den59k/marci'
+import { HTTPError } from 'dynara'
 
 app.get('/secret', () => {
   throw new HTTPError('Forbidden', 403)        // text body
