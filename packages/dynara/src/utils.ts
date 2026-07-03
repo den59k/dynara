@@ -39,6 +39,16 @@ export const getValidationError = (obj: any, step?: string): string => {
   }
 }
 
+// What a `date` field accepts on the wire: an ISO-8601 string ("2020-01-02",
+// optionally with a time part / timezone) or epoch milliseconds. The value is
+// decoded into a JS Date before it reaches the handler (see parseBody), and a
+// Date is encoded back to an ISO string.
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})?)?$/
+const dateType = (options?: any) =>
+  Type.Transform(Type.Union([ Type.String({ pattern: DATE_PATTERN.source }), Type.Number() ], options))
+    .Decode((value: string | number) => new Date(value))
+    .Encode((value: unknown) => value instanceof Date? value.toISOString(): value as string | number)
+
 provideTypeBoxMap({
   string: Type.String,
   boolean: Type.Boolean,
@@ -47,6 +57,7 @@ provideTypeBoxMap({
   object: Type.Object,
   array: Type.Array,
   bigint: Type.BigInt,
+  date: dateType,
   union: Type.Union,
   null: Type.Null,
   literal: Type.Literal,
@@ -76,8 +87,11 @@ export const parseBody = (schema: TypeCheck<any>, req: BunRequest): Promise<any>
           const error = schema.Errors(resp).First()
           const err = new ValidationError(error, "body")
           rej(err)
+          return
         }
-        res(resp)
+        // Decode applies Transform types (e.g. "date" → JS Date); for schemas
+        // without transforms it returns the value unchanged.
+        res(schema.Decode(resp))
       })
   })
 }

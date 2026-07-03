@@ -59,7 +59,15 @@ A few conveniences:
 
 - **Array params** are comma-split: `GET /items/1,2,3` with `{ itemIds: { type: 'array', items: 'number' } }` yields `[1, 2, 3]`.
 - **Query booleans** accept `?flag=true` or a bare `?flag`.
+- **Dates**: a `"date"` field accepts an ISO-8601 string (`"2020-01-02"`, optionally with a time part) or epoch milliseconds, and is decoded into a JS `Date` before your handler runs — `req.body.startsAt instanceof Date`. Works in bodies, query strings, and params; `"date?"` / `"date??"` behave like every other type.
 - `req.raw` exposes the underlying `BunRequest`, and `req.server` the Bun `Server`.
+
+```ts
+const event = schema({ title: 'string', startsAt: 'date', endsAt: 'date??' })
+app.post('/events', { body: event }, (req) => {
+  return { day: req.body.startsAt.getDay() } // startsAt is a Date
+})
+```
 
 ## Hooks
 
