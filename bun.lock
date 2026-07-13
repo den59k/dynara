@@ -18,10 +18,10 @@
     },
     "packages/dynara": {
       "name": "dynara",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
         "@sinclair/typebox": "^0.34.37",
-        "compact-json-schema": "^0.1.4",
+        "compact-json-schema": "^0.1.7",
       },
       "devDependencies": {
         "bun-plugin-dts": "^0.3.0",
@@ -144,7 +144,7 @@
 
     "common-path-prefix": ["common-path-prefix@3.0.0", "", {}, "sha512-QE33hToZseCH3jS0qN96O/bSh3kaw/h+Tq7ngyY9eWDUnTlTNUyqfqvCXioLe5Na5jFsL78ra/wuBU4iuEgd4w=="],
 
-    "compact-json-schema": ["compact-json-schema@0.1.4", "", {}, "sha512-/WM8oDkfebsoud69Baq/gWuY0Xf8jcBxkUpLvg2wHzqTYtQWNB7Bh1t+/EfwNqFt5gDYpCrths4t+9LUsOJutw=="],
+    "compact-json-schema": ["compact-json-schema@0.1.7", "", {}, "sha512-YtC5iPznp18i79mZgblrJN1u1Q2WTGEsniIhe+pBXdhQ6ehPAzAYizWJj2JOur6hv89R/NswewZ0rimzYZ95pA=="],
 
     "confbox": ["confbox@0.2.2", "", {}, "sha512-1NB+BKqhtNipMsov4xI/NnhCKp9XG9NamYp5PVm9klAT0fsrNPjaFICsCFhNhwZJKNh7zB/3q8qXz0E9oaMNtQ=="],
 
@@ -269,6 +269,8 @@
     "@isaacs/cliui/strip-ansi": ["strip-ansi@7.1.0", "", { "dependencies": { "ansi-regex": "^6.0.1" } }, "sha512-iq6eVVI64nQQTRYq2KtEg2d2uU7LElhTJwsH4YzIHZshxlgZms/wIc4VoDQTlG/IvVIrBKG06CrZnp0qv7hkcQ=="],
 
     "@isaacs/cliui/wrap-ansi": ["wrap-ansi@8.1.0", "", { "dependencies": { "ansi-styles": "^6.1.0", "string-width": "^5.0.1", "strip-ansi": "^7.0.1" } }, "sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ=="],
+
+    "dynara-dev-app/compact-json-schema": ["compact-json-schema@0.1.4", "", {}, "sha512-/WM8oDkfebsoud69Baq/gWuY0Xf8jcBxkUpLvg2wHzqTYtQWNB7Bh1t+/EfwNqFt5gDYpCrths4t+9LUsOJutw=="],
 
     "nypm/tinyexec": ["tinyexec@0.3.2", "", {}, "sha512-KQQR9yN7R5+OSwaK0XQoj22pwHoTlgYqmUscPYoknOoWCWfj/5/ABTMRi69FrKU5ffPVh5QcFikpWJI/P1ocHA=="],
 
