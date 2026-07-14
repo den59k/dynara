@@ -7,11 +7,31 @@ export class DynaraRequestInternal<T extends RouteOptions = {}> {
 
   server: Server
   raw: BunRequest
-  params: T["params"] extends object? SchemaType<T["params"]>: unknown
-  query: T["query"] extends object? SchemaType<T["query"]>: unknown
+  params: T["params"] extends object? SchemaType<T["params"]>: unknown = undefined as any
+  query: T["query"] extends object? SchemaType<T["query"]>: unknown = undefined as any
   body: T["body"] extends object? SchemaType<T["body"]>: unknown = null as any
 
+  private paramsSchema: any
+  private querySchema: any
+
   constructor(req: BunRequest, server: Server, paramsSchema: any, querySchema: any) {
+    this.raw = req
+    this.server = server
+    this.paramsSchema = paramsSchema
+    this.querySchema = querySchema
+  }
+
+  /**
+   * Parses `params` and `query` off the raw request against their schemas. Kept
+   * separate from the constructor so the request object always exists (even when
+   * validation throws), which lets the error handler and `onResponse` hooks run
+   * with a real request. May throw a TypeBox validation error.
+   */
+  parse(): void {
+    const req = this.raw
+    const paramsSchema = this.paramsSchema
+    const querySchema = this.querySchema
+
     if (paramsSchema && paramsSchema.arrayKeys) {
       const params = req.params as any
       for (let key of paramsSchema.arrayKeys) {
@@ -46,8 +66,5 @@ export class DynaraRequestInternal<T extends RouteOptions = {}> {
     } else {
       this.query = null as any
     }
-
-    this.raw = req
-    this.server = server
   }
 }

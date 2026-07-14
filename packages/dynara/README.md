@@ -76,8 +76,44 @@ app.addHook('onRequest', (req) => {
   // runs before every handler; throw to short-circuit the request
 })
 
+app.addHook('onResponse', (req, res) => {
+  // runs after the response is produced (incl. errors and 404s); observational
+  console.log(`${req.raw.method} ${new URL(req.raw.url).pathname} -> ${res.status}`)
+})
+
 app.addHook('onListen', (server) => {
   console.log(`Listening on ${server.url}`)
+})
+```
+
+`onRequest` runs before body parsing/validation; throwing short-circuits into the
+error handler. `onResponse` runs after a `Response` exists — from a handler, an
+error, or a 404 — and can read `res.status` / `res.headers`. It is observational:
+its return value is ignored, and a throw is logged but never changes the response.
+
+**Hooks propagate into `register()` children.** A hook added on the root (or any
+ancestor) runs for every route mounted under it, outermost→innermost, before the
+child's own hooks — so a root-level `onRequest` for auth/request-id/logging
+applies everywhere. Encapsulation stays one-directional: a hook added *inside* a
+child never affects the parent or sibling routers.
+
+```ts
+app.addHook('onRequest', (req) => { req.requestId = crypto.randomUUID() })
+app.register((api) => {
+  api.get('/health', (req) => ({ id: req.requestId })) // sees the root hook
+}, { prefix: '/api' })
+```
+
+### Latency timing
+
+There is no built-in timing API — stamp a start time in `onRequest` and read it
+back in `onResponse`. Type the app's context so the field is available on `req`:
+
+```ts
+const app = new Router<{ startedAt?: number }>()
+app.addHook('onRequest', (req) => { req.startedAt = performance.now() })
+app.addHook('onResponse', (req, res) => {
+  console.log(`${res.status} in ${performance.now() - (req.startedAt ?? 0)}ms`)
 })
 ```
 
@@ -112,6 +148,35 @@ const users = dynara<Ctx>()
 app.register(users, { prefix: '/users' })
 ```
 
+### Per-route guards with `.with()`
+
+To guard a *single* route without wrapping it in a whole sub-group, use
+`app.with(plugin)`. It takes the same plugin shape as `.use()`, so the same guard
+works at both group level (`.use()`) and route level (`.with()`). It is
+type-contributing — whatever the plugin guarantees on `req` (e.g. `req.auth`) is
+typed as present in the handler — and one-shot: the guard applies only to the
+single route method called on the scope. Chain `.with(a).with(b)` to compose.
+
+```ts
+const useAuth = (app: Router<{ auth: { userId: number } }>) => {
+  app.addHook('onRequest', (req) => {
+    const token = req.raw.headers.get('authorization')
+    if (!token) throw new HTTPError('Unauthorized', 401)
+    req.auth = { userId: Number(token) }
+  })
+}
+
+export default dynara().routes((app) => {
+  app.post('/request-code', { body }, handler)                    // public
+  app.post('/verify', { body }, handler)                          // public
+  app.with(useAuth).post('/complete-profile', { body }, handler)  // guarded — req.auth guaranteed
+  app.with(useAuth).get('/me', (req) => req.auth)                 // guarded
+})
+```
+
+Guards run in the `onRequest` phase — after group-level / propagated parent hooks
+and before body validation.
+
 ## Errors
 
 Throw `HTTPError` to send an explicit status code; validation failures are turned into `400` responses automatically.
@@ -122,6 +187,30 @@ import { HTTPError } from 'dynara'
 app.get('/secret', () => {
   throw new HTTPError('Forbidden', 403)        // text body
   // throw new HTTPError({ reason: 'forbidden' }, 403)  // JSON body
+})
+```
+
+### Custom error handler
+
+Install an app-global handler with `setErrorHandler` to control the error
+envelope, hide internals in production, or forward errors to Sentry. It receives
+the raw error (so it can special-case `HTTPError` / validation errors) plus the
+request, and returns the `Response`. Every error from a hook or handler flows
+through it, including `register()` children. If the handler itself throws, dynara
+falls back to the built-in mapping and never crashes.
+
+```ts
+import { HTTPError, isValidationError } from 'dynara'
+
+app.setErrorHandler((err, req) => {
+  if (err instanceof HTTPError) {
+    return Response.json({ error: err.message }, { status: err.statusCode })
+  }
+  if (isValidationError(err)) {
+    return Response.json({ error: 'Invalid input' }, { status: 400 })
+  }
+  Sentry.captureException(err)
+  return Response.json({ error: 'Internal error' }, { status: 500 })
 })
 ```
 
@@ -152,6 +241,24 @@ app.registerWsHandler('/ws', {
   message(ws, msg) { ws.send(msg) },
 })
 ```
+
+## Changelog
+
+### Unreleased
+
+- **Breaking (pre-1.0): `onRequest` hooks now propagate into `register()` children.**
+  Previously a hook added on the root did **not** run for routes mounted under a
+  prefixed sub-router. Now ancestor hooks run for descendant routes
+  (outermost→innermost), matching Fastify. Hooks added inside a child remain
+  scoped to that child and its descendants — they never affect a parent or
+  sibling. If you relied on root hooks *not* applying to a sub-router, move that
+  hook into the specific child instead.
+- **New:** `Router.setErrorHandler(handler)` for a custom, app-global error
+  response, plus the `isValidationError(err)` type guard.
+- **New:** `onResponse` lifecycle hook, fired for every produced response
+  (including errors and 404s).
+- **New:** `Router.with(plugin)` for a type-contributing per-route guard that
+  reuses the `.use()` plugin shape.
 
 ## License
 

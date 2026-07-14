@@ -4,8 +4,10 @@ import { TypeBoxError } from '@sinclair/typebox'
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { HTTPError, ValidationError } from './error'
 import { DynaraRequestInternal } from './request'
-import type { GetRouteAction, GetRouteOptions, InjectOptions, DynaraRequest, RegisterPluginOptions, RouteAction, RouteOptions } from './common'
+import type { ErrorHandler, GetRouteAction, GetRouteOptions, InjectOptions, DynaraRequest, OnResponseHook, RegisterPluginOptions, RouteAction, RouteOptions, RouteScope } from './common'
 import { getRouteOptions, isDefault, parseBody, matchRoute, type GetOptionsFromSchemaList, getValidationError, type PostOptionsFromSchemaList } from './utils'
+
+type Hook = (ctx: any, ...rest: any[]) => (void | Promise<void>)
 
 export class Router<R extends object = {}> {
 
@@ -13,13 +15,36 @@ export class Router<R extends object = {}> {
   private promises: Promise<void>[] = []
   private prefix = ""
   private root: Router | null = null
-  
+  private parent: Router | null = null
+
   private server!: Server
 
   private onListenHooks: Array<(ctx: any) => (void | Promise<void>)> = []
-  private onRequestHooks: Array<(ctx: DynaraRequest<R>) => (void | Promise<void>)> = []
+  private onRequestHooks: Hook[] = []
+  private onResponseHooks: Hook[] = []
+  private errorHandler?: ErrorHandler
 
-  private add(path: string, method: string, _options: RouteOptions | SchemaItem[], callback: RouteAction<any>) {
+  /**
+   * Collects hooks of one kind from the root down to this router, in
+   * outermost→innermost registration order. This is what makes parent hooks
+   * propagate into `register()` children (Task 1): a route runs every ancestor's
+   * hooks before its own, while hooks added to a child stay scoped to that child.
+   */
+  private collectHooks(kind: "onRequest" | "onResponse"): Hook[] {
+    const chain: Router[] = []
+    let cur: Router | null = this
+    while (cur) {
+      chain.push(cur)
+      cur = cur.parent
+    }
+    const result: Hook[] = []
+    for (let i = chain.length - 1; i >= 0; i--) {
+      result.push(...(kind === "onRequest"? chain[i].onRequestHooks: chain[i].onResponseHooks))
+    }
+    return result
+  }
+
+  private add(path: string, method: string, _options: RouteOptions | SchemaItem[], callback: RouteAction<any>, withHooks: Hook[] = []) {
     let fullPath = (this.prefix + (path.endsWith("/")? path.slice(0, -1): path)) || "/"
     if (!(fullPath in this.routes)) {
       this.routes[fullPath] = {}
@@ -40,32 +65,60 @@ export class Router<R extends object = {}> {
     this.routes[fullPath][method] = async (req: BunRequest) => {
       const request = new DynaraRequestInternal(req, this.root?.server ?? this.server, paramsSchema, querySchema)
 
-      for (const callback of this.onRequestHooks) {
-        await callback(request as any)
+      let response: Response
+      try {
+        request.parse()
+
+        for (const callback of this.collectHooks("onRequest")) {
+          await callback(request as any)
+        }
+        // Route-level `.with()` guards run after group/propagated hooks, before validation.
+        for (const callback of withHooks) {
+          await callback(request as any)
+        }
+
+        const body = bodyValidation === null? undefined: await parseBody(bodyValidation, req)
+        request.body = body as any
+
+        const resp = await callback(request as any)
+        if (resp === undefined) {
+          response = new Response()
+        } else if (resp instanceof Response) {
+          response = resp
+        } else {
+          response = Response.json(resp)
+        }
+      } catch (err) {
+        response = await this.resolveError(err, request as any)
       }
 
-      const body = bodyValidation === null? undefined: await parseBody(bodyValidation, req)     
-      request.body = body as any
-
-      const resp = await callback(request as any)
-      if (resp === undefined) {
-        return new Response()
-      } else if (resp instanceof Response) {
-        return resp
-      } else {
-        return Response.json(resp)
-      }
+      await this.runOnResponse(request as any, response)
+      return response
     }
   }
 
   addHook(where: "onListen", callback: (server: Bun.Server) => void): void
-  addHook(where: "onRequest", callback: (ctx: DynaraRequest<R>) => void): void
-  addHook(where: "onRequest" | "onListen", callback: (ctx: any) => void): void {
+  addHook(where: "onRequest", callback: (ctx: DynaraRequest<R>) => void | Promise<void>): void
+  addHook(where: "onResponse", callback: OnResponseHook<R>): void
+  addHook(where: "onRequest" | "onResponse" | "onListen", callback: (ctx: any, ...rest: any[]) => void): void {
     if (where === "onRequest") {
       this.onRequestHooks.push(callback)
+    } else if (where === "onResponse") {
+      this.onResponseHooks.push(callback)
     } else if (where === "onListen") {
       this.onListenHooks.push(callback)
     }
+  }
+
+  /**
+   * Installs a custom error handler for the whole app (including `register()`
+   * children). Any error thrown from a hook or handler — `HTTPError`, a
+   * validation failure, or a generic `throw` — is routed to it. If the handler
+   * itself throws, dynara falls back to the built-in mapping and never crashes.
+   */
+  setErrorHandler(handler: ErrorHandler): this {
+    (this.root ?? this).errorHandler = handler
+    return this
   }
 
   get(path: string, callback: GetRouteAction<{}, R>): void
@@ -124,10 +177,47 @@ export class Router<R extends object = {}> {
   }
 
 
+  /**
+   * Per-route guard. `with(plugin)` applies the same plugin shape as `.use()`
+   * against a hook collector and returns a `RouteScope` whose `get`/`post`/…
+   * attach the collected `onRequest` hooks to that single route only. Chainable:
+   * `.with(a).with(b)` composes both hooks and both context contributions.
+   */
+  with<S extends object = {}>(plugin: (app: Router<R & S>) => void | Promise<void>): RouteScope<R & S> {
+    return this.buildRouteScope(plugin, [])
+  }
+
+  private buildRouteScope(plugin: (app: Router<any>) => void | Promise<void>, existing: Hook[]): RouteScope<any> {
+    const collector = new Router()
+    plugin(collector as any)
+    const hooks = [...existing, ...collector.onRequestHooks]
+    const router = this
+
+    const addRoute = (path: string, method: string, args: any[]) => {
+      if (args.length === 1) {
+        router.add(path, method, {}, args[0], hooks)
+      } else {
+        router.add(path, method, args[0], args[1], hooks)
+      }
+    }
+
+    return {
+      with(nextPlugin: (app: Router<any>) => void | Promise<void>) {
+        return router.buildRouteScope(nextPlugin, hooks)
+      },
+      get: (path: string, ...args: any[]) => addRoute(path, "GET", args),
+      post: (path: string, ...args: any[]) => addRoute(path, "POST", args),
+      put: (path: string, ...args: any[]) => addRoute(path, "PUT", args),
+      patch: (path: string, ...args: any[]) => addRoute(path, "PATCH", args),
+      delete: (path: string, ...args: any[]) => addRoute(path, "DELETE", args),
+    } as RouteScope<any>
+  }
+
   register(plugin: (app: Router<any>) => void | Promise<void>, options: RegisterPluginOptions = {}): void {
     const app = new Router()
 
     app.root = this.root ?? this as any
+    app.parent = this
     app.routes = this.routes
     app.onListenHooks = this.onListenHooks
     app.prefix = this.prefix + (options.prefix ?? "")
@@ -189,6 +279,20 @@ export class Router<R extends object = {}> {
     }
   }
 
+  /**
+   * The not-found / websocket entry point, wrapped so `onResponse` hooks also
+   * fire for a 404 (or a custom not-found handler's response). Skipped when the
+   * underlying fetch performs a websocket upgrade (no Response produced).
+   */
+  private handleFetch = async (req: BunRequest, server: Server): Promise<Response> => {
+    const resp = await this.fetch(req, server)
+    if (resp instanceof Response) {
+      const request = new DynaraRequestInternal(req, server, null, null)
+      await this.runOnResponse(request as any, resp)
+    }
+    return resp
+  }
+
   async listen(port?: number, hostname?: string): Promise<Bun.Server> {
     if (this.promises.length > 0) {
       await Promise.all(this.promises)
@@ -197,7 +301,7 @@ export class Router<R extends object = {}> {
       routes: this.routes,
       port,
       hostname,
-      fetch: this.fetch as any,
+      fetch: this.handleFetch as any,
       websocket: this.websocket,
       error: (err) => this.handleError(err),
     })
@@ -209,6 +313,35 @@ export class Router<R extends object = {}> {
     }
 
     return server
+  }
+
+  /**
+   * Maps a thrown error to a Response, routing through the app's custom
+   * `setErrorHandler` when one is installed and falling back to the built-in
+   * mapping if none is set or the custom handler itself throws.
+   */
+  private async resolveError(err: any, request: DynaraRequest<R>): Promise<Response> {
+    const handler = (this.root ?? this).errorHandler
+    if (handler) {
+      try {
+        return await handler(err, request as any)
+      } catch (secondary) {
+        console.error(secondary)
+        return this.handleError(err)
+      }
+    }
+    return this.handleError(err)
+  }
+
+  /** Runs `onResponse` hooks (root→leaf); a throwing hook is logged, never fatal. */
+  private async runOnResponse(request: DynaraRequest<R>, response: Response): Promise<void> {
+    for (const callback of this.collectHooks("onResponse")) {
+      try {
+        await callback(request as any, response)
+      } catch (err) {
+        console.error(err)
+      }
+    }
   }
 
   /** Converts a thrown error into the same Response Bun's `error` handler produces. */
@@ -271,10 +404,12 @@ export class Router<R extends object = {}> {
 
     const match = matchRoute(this.routes, method, pathname)
     if (!match) {
-      return this.fetch(req, { upgrade: () => false } as any)
+      return this.handleFetch(req, { upgrade: () => false } as any)
     }
 
     req.params = match.params
+    // The route handler catches its own errors and runs onResponse internally,
+    // so it resolves to a Response; the catch here is a defensive fallback.
     try {
       return await match.handler(req)
     } catch (err) {

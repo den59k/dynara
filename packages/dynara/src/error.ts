@@ -1,3 +1,5 @@
+import { TypeBoxError } from "@sinclair/typebox"
+
 export class HTTPError extends Error {
   statusCode: number
   data?: any
@@ -26,3 +28,11 @@ export class ValidationError extends Error {
     this.where = where
   }
 }
+
+/**
+ * True for the errors dynara maps to a `400` by default — a body
+ * `ValidationError` or a TypeBox error from params/query parsing. Handy inside a
+ * custom `setErrorHandler` to special-case validation failures.
+ */
+export const isValidationError = (err: unknown): err is ValidationError | TypeBoxError =>
+  err instanceof ValidationError || err instanceof TypeBoxError
